@@ -49,6 +49,19 @@ class ShareViewController: SLComposeServiceViewController {
                 break // 只处理第一个符合条件的附件
             }
 
+            if let url = URL(string: "helpGrayson://") {
+                let selector = NSSelectorFromString("openURL:")
+                   // 尝试通过 extensionContext 打开宿主应用
+                var responder: UIResponder? = self as UIResponder
+                while responder != nil {
+                    if responder?.responds(to: selector) == true {
+                        responder?.perform(selector, with: url)
+                        break
+                    }
+                    responder = responder?.next
+                }
+            }
+
             // 完成分享请求
             self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
         }

@@ -33,6 +33,14 @@
 				<string>shareextension</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>helpGrayson</string>
+			</array>
+		</dict>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>

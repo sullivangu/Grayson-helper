@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7F1E6E422D1401450063D717 /* CoreXLSX in Frameworks */ = {isa = PBXBuildFile; productRef = 7F1E6E412D1401450063D717 /* CoreXLSX */; };
 		7F5E5FDF2D126A0E0004BEF2 /* Grayson_s_HelperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5E5FDE2D126A0E0004BEF2 /* Grayson_s_HelperApp.swift */; };
 		7F5E5FE12D126A0E0004BEF2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5E5FE02D126A0E0004BEF2 /* ContentView.swift */; };
 		7F5E5FE32D126A100004BEF2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F5E5FE22D126A100004BEF2 /* Assets.xcassets */; };
@@ -58,6 +59,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7F1E6E422D1401450063D717 /* CoreXLSX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +141,7 @@
 			);
 			name = "Grayson's Helper";
 			packageProductDependencies = (
+				7F1E6E412D1401450063D717 /* CoreXLSX */,
 			);
 			productName = "Grayson's Helper";
 			productReference = 7F5E5FDB2D126A0E0004BEF2 /* Grayson's Helper.app */;
@@ -189,6 +192,7 @@
 			);
 			mainGroup = 7F5E5FD22D126A0E0004BEF2;
 			packageReferences = (
+				7F1E6E402D1401450063D717 /* XCRemoteSwiftPackageReference "CoreXLSX" */,
 			);
 			productRefGroup = 7F5E5FDC2D126A0E0004BEF2 /* Products */;
 			projectDirPath = "";
@@ -518,6 +522,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7F1E6E402D1401450063D717 /* XCRemoteSwiftPackageReference "CoreXLSX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CoreOffice/CoreXLSX.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7F1E6E412D1401450063D717 /* CoreXLSX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F1E6E402D1401450063D717 /* XCRemoteSwiftPackageReference "CoreXLSX" */;
+			productName = CoreXLSX;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7F5E5FD32D126A0E0004BEF2 /* Project object */;
 }
