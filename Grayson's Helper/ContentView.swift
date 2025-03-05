@@ -93,7 +93,7 @@ struct ContentView: View {
                 let worksheet = try file.parseWorksheet(at: path)
                   var counter = 0 // 初始化计数器
                 for row in worksheet.data?.rows ?? [] {
-                    if counter < 150 && counter != 0 {
+                    if counter < 50 && counter != 0 {
                         if let c = row.cells.first, let str = c.stringValue(sharedStrings){
                             let fixedStr = fixWord(str)
                             firstColumnValues.append(fixedStr)
