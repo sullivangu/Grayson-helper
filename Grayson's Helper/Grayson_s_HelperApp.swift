@@ -14,7 +14,7 @@ struct Grayson_s_HelperApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onChange(of: scenePhase) { newPhase in
+                .onChange(of: scenePhase) {  oldPhase, newPhase in
                                     switch newPhase {
                                     case .active:
                                         print("App is active")

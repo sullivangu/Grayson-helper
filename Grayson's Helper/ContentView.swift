@@ -29,7 +29,7 @@ struct ContentView: View {
                 Text(processedData)
                     .foregroundColor(.green)
             }
-        }.onChange(of: scenePhase) { newPhase in
+        }.onChange(of: scenePhase) { oldPhase, newPhase in
             switch newPhase {
             case .active:
                 message = "应用已恢复活跃！"
@@ -50,7 +50,7 @@ struct ContentView: View {
     
     let appGroupID = "group.shenlv.broker" // 替换为你的App Group ID
     func loadSharedXLSXFile() {
-        guard let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
             print("无法访问共享容器")
             return
         }
@@ -162,7 +162,7 @@ struct ContentView: View {
 
     // 综合修复方法
     func fixWord(_ word: String) -> String {
-        var correctedWord = correctSpelling(of: word) // 修复拼写错误
+        let correctedWord = correctSpelling(of: word) // 修复拼写错误
 //        correctedWord = correctPlurality(of: correctedWord) // 修复单复数
 //        correctedWord = correctCase(of: correctedWord) // 修复大小写
         return correctedWord
