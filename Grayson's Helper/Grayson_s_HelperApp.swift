@@ -7,10 +7,16 @@
 
 import SwiftUI
 import CoreXLSX
+import UserNotifications
 
 @main
 struct Grayson_s_HelperApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    
+    init() {
+        setupNotifications()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -29,6 +35,21 @@ struct Grayson_s_HelperApp: App {
                                 
             }
         }
+    }
+    
+    private func setupNotifications() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            if granted {
+                print("通知权限已获取")
+            } else if let error = error {
+                print("通知权限获取失败: \(error.localizedDescription)")
+            }
+        }
+        
+        // 设置通知分类和动作
+        let openAction = UNNotificationAction(identifier: "OPEN_ACTION", title: "打开应用", options: [.foreground])
+        let category = UNNotificationCategory(identifier: "OPEN_APP_CATEGORY", actions: [openAction], intentIdentifiers: [], options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([category])
     }
     
     func sendLocalNotification() {

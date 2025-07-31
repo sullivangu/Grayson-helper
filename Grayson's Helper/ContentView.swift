@@ -16,11 +16,30 @@ extension ScenePhase {
     }
 }
 struct ContentView: View {
+    var body: some View {
+        TabView {
+            ProcessingView()
+                .tabItem {
+                    Image(systemName: "doc.text")
+                    Text("处理")
+                }
+            
+            CleanupView()
+                .tabItem {
+                    Image(systemName: "trash")
+                    Text("清理")
+                }
+        }
+    }
+}
+
+struct ProcessingView: View {
     @State private var importedFileURL: URL?
     @State private var processedData: String = "暂无数据"
     @State private var showingDocumentPicker = false
     @State private var message = "等待状态变化..."
     @Environment(\.scenePhase) private var scenePhase  // 监听应用生命周期状态
+    
     var body: some View {
         VStack {
             Text(message)
@@ -29,7 +48,13 @@ struct ContentView: View {
                 Text(processedData)
                     .foregroundColor(.green)
             }
-        }.onChange(of: scenePhase) { oldPhase, newPhase in
+        }
+        .onOpenURL { url in
+            print("收到URL: \(url)")
+            // 当通过URL Scheme唤起时，立即加载共享文件
+            loadSharedXLSXFile()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
             switch newPhase {
             case .active:
                 message = "应用已恢复活跃！"
@@ -48,7 +73,7 @@ struct ContentView: View {
         }
     }
     
-    let appGroupID = "group.shenlv.broker" // 替换为你的App Group ID
+    let appGroupID = "group.shenlv.broker"
     func loadSharedXLSXFile() {
         guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil else {
             print("无法访问共享容器")
@@ -93,7 +118,7 @@ struct ContentView: View {
                 let worksheet = try file.parseWorksheet(at: path)
                   var counter = 0 // 初始化计数器
                 for row in worksheet.data?.rows ?? [] {
-                    if counter < 50 && counter != 0 {
+                    if counter < 100 && counter != 0 {
                         if let c = row.cells.first, let str = c.stringValue(sharedStrings){
                             let fixedStr = fixWord(str)
                             firstColumnValues.append(fixedStr)
@@ -271,4 +296,133 @@ struct RowData: Codable {
 
 struct CellData: Codable {
     let v: String?
+}
+
+struct CleanupView: View {
+    @State private var isClearing = false
+    @State private var message = "点击按钮清理所有缓存文件"
+    @State private var fileCount = 0
+    
+    let appGroupID = "group.shenlv.broker"
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("文件清理")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            Text(message)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            if fileCount > 0 {
+                Text("发现 \(fileCount) 个缓存文件")
+                    .foregroundColor(.orange)
+            }
+            
+            Button(action: {
+                clearCacheFiles()
+            }) {
+                HStack {
+                    if isClearing {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
+                    Image(systemName: "trash.fill")
+                    Text(isClearing ? "清理中..." : "清理缓存")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            .disabled(isClearing)
+            .padding(.horizontal)
+            
+            Button(action: {
+                refreshFileCount()
+            }) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("刷新文件统计")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .onAppear {
+            refreshFileCount()
+        }
+    }
+    
+    func refreshFileCount() {
+        guard let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+            message = "无法访问共享容器"
+            return
+        }
+        
+        do {
+            let files = try FileManager.default.contentsOfDirectory(at: sharedContainer, includingPropertiesForKeys: nil)
+            let xlsxFiles = files.filter { $0.pathExtension.lowercased() == "xlsx" || $0.pathExtension.lowercased() == "xls" }
+            fileCount = xlsxFiles.count
+            
+            if fileCount == 0 {
+                message = "没有发现缓存文件"
+            } else {
+                message = "发现 \(fileCount) 个Excel缓存文件"
+            }
+        } catch {
+            message = "检查文件失败: \(error.localizedDescription)"
+            fileCount = 0
+        }
+    }
+    
+    func clearCacheFiles() {
+        guard !isClearing else { return }
+        isClearing = true
+        
+        guard let sharedContainer = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+            message = "无法访问共享容器"
+            isClearing = false
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            var deletedCount = 0
+            
+            do {
+                let files = try FileManager.default.contentsOfDirectory(at: sharedContainer, includingPropertiesForKeys: nil)
+                let xlsxFiles = files.filter { $0.pathExtension.lowercased() == "xlsx" || $0.pathExtension.lowercased() == "xls" }
+                
+                for file in xlsxFiles {
+                    try FileManager.default.removeItem(at: file)
+                    deletedCount += 1
+                    print("已删除文件: \(file.lastPathComponent)")
+                }
+                
+                // 清除UserDefaults中的文件路径记录
+                let userDefaults = UserDefaults(suiteName: appGroupID)
+                userDefaults?.removeObject(forKey: "sharedXLSXFilePath")
+                userDefaults?.synchronize()
+                
+                DispatchQueue.main.async {
+                    self.message = "成功清理 \(deletedCount) 个文件"
+                    self.fileCount = 0
+                    self.isClearing = false
+                }
+                
+            } catch {
+                DispatchQueue.main.async {
+                    self.message = "清理失败: \(error.localizedDescription)"
+                    self.isClearing = false
+                }
+            }
+        }
+    }
 }
