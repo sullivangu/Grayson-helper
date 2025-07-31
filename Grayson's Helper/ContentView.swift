@@ -33,21 +33,114 @@ struct ContentView: View {
     }
 }
 
+struct WordPair {
+    let original: String
+    let corrected: String
+    let dictionaryForm: String
+}
+
 struct ProcessingView: View {
     @State private var importedFileURL: URL?
     @State private var processedData: String = "暂无数据"
+    @State private var wordPairs: [WordPair] = []
     @State private var showingDocumentPicker = false
     @State private var message = "等待状态变化..."
+    @State private var showToast = false
+    @State private var toastMessage = ""
     @Environment(\.scenePhase) private var scenePhase  // 监听应用生命周期状态
     
     var body: some View {
-        VStack {
-            Text(message)
-            
-            if !processedData.isEmpty {
-                Text(processedData)
-                    .foregroundColor(.green)
+        NavigationView {
+            VStack {
+                Text(message)
+                    .padding()
+                
+                if !wordPairs.isEmpty {
+                    List(wordPairs.indices, id: \.self) { index in
+                        let pair = wordPairs[index]
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("原始:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            Text(pair.original)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                            
+                            HStack {
+                                Text("修正:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            Text(pair.corrected)
+                                .font(.body)
+                                .foregroundColor(.green)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Text("字典形式:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            Text(pair.dictionaryForm)
+                                .font(.body)
+                                .foregroundColor(.blue)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } else if processedData != "暂无数据" {
+                    Text(processedData)
+                        .foregroundColor(.green)
+                        .padding()
+                }
             }
+            .navigationTitle("Grayson's Helper")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        copyToClipboard()
+                    }) {
+                        Image(systemName: "doc.on.clipboard")
+                            .foregroundColor(.blue)
+                    }
+                    .disabled(wordPairs.isEmpty)
+                }
+            }
+            .overlay(
+                // Toast notification
+                VStack {
+                    Spacer()
+                    if showToast {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.white)
+                            Text(toastMessage)
+                                .foregroundColor(.white)
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.black.opacity(0.8))
+                        .cornerRadius(25)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    showToast = false
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 100)
+                .animation(.easeInOut(duration: 0.3), value: showToast)
+            )
         }
         .onOpenURL { url in
             print("收到URL: \(url)")
@@ -71,6 +164,27 @@ struct ProcessingView: View {
                 print("Unknown state")
             }
         }
+    }
+    
+    func copyToClipboard() {
+        // 创建包含原始单词和字典形式的数组
+        var allWords: [String] = []
+        
+        for pair in wordPairs {
+            allWords.append(pair.original)      // 添加原始单词
+            allWords.append(pair.dictionaryForm) // 添加字典形式
+        }
+        
+        let result = allWords.joined(separator: ",")
+        UIPasteboard.general.string = result
+        
+        // 显示toast提示
+        toastMessage = "已复制到剪贴板"
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showToast = true
+        }
+        
+        print("已复制到剪贴板: \(result)")
     }
     
     let appGroupID = "group.shenlv.broker"
@@ -108,7 +222,7 @@ struct ProcessingView: View {
                 print("解析共享字符串失败")
                 return
             }
-            var firstColumnValues = [String]()
+            var pairs = [WordPair]()
 
             for wbk in try file.parseWorkbooks() {
               for (name, path) in try file.parseWorksheetPathsAndNames(workbook: wbk) {
@@ -121,8 +235,8 @@ struct ProcessingView: View {
                     if counter < 100 && counter != 0 {
                         if let c = row.cells.first, let str = c.stringValue(sharedStrings){
                             let fixedStr = fixWord(str)
-                            firstColumnValues.append(fixedStr)
-                            firstColumnValues.append(str)
+                            let dictionaryStr = createDictionaryForm(str)
+                            pairs.append(WordPair(original: str, corrected: fixedStr, dictionaryForm: dictionaryStr))
                         }
                     }
                     counter += 1
@@ -130,14 +244,15 @@ struct ProcessingView: View {
               }
             }
 
-            // 将所有值通过逗号连接
-            let result = firstColumnValues.joined(separator: ",")
-            processedData = result
             DispatchQueue.main.async {
-                // 复制到剪切板
+                self.wordPairs = pairs
+                let correctedWords = pairs.map { $0.corrected }
+                let result = correctedWords.joined(separator: ",")
+                self.processedData = result
+                // 自动复制到剪切板
                 UIPasteboard.general.string = result
             }
-            print("第一列数据: \(result)")
+            print("处理了 \(pairs.count) 个单词")
             
         } catch {
             print("解析文件失败: \(error)")
@@ -161,22 +276,143 @@ struct ProcessingView: View {
         return word // 如果没有拼写错误，直接返回原单词
     }
 
-    // 单复数转换方法（简单示例）
+    // 单复数转换方法（增强版）
     func correctPlurality(of word: String) -> String {
-        // 如果是复数形式且以 "es" 结尾，尝试转为单数
-        if word.hasSuffix("es") {
-            let singular = word.dropLast(2) // 移除 "es"
-            return String(singular)
+        let lowercased = word.lowercased()
+        
+        // 不规则复数形式
+        let irregularPlurals = [
+            "children": "child",
+            "feet": "foot",
+            "teeth": "tooth",
+            "mice": "mouse",
+            "geese": "goose",
+            "men": "man",
+            "women": "woman",
+            "people": "person",
+            "oxen": "ox"
+        ]
+        
+        if let singular = irregularPlurals[lowercased] {
+            return restoreOriginalCase(original: word, transformed: singular)
         }
         
-        // 如果是复数形式且以 "s" 结尾，尝试转为单数
-        if word.hasSuffix("s") {
-            let singular = word.dropLast() // 移除 "s"
-            return String(singular)
+        // 以 "ies" 结尾的单词，替换为 "y"
+        if lowercased.hasSuffix("ies") && lowercased.count > 3 {
+            let base = String(lowercased.dropLast(3))
+            let singular = base + "y"
+            return restoreOriginalCase(original: word, transformed: singular)
+        }
+        
+        // 以 "ves" 结尾的单词，替换为 "f" 或 "fe"
+        if lowercased.hasSuffix("ves") {
+            let base = String(lowercased.dropLast(3))
+            let singular = base + "f"
+            return restoreOriginalCase(original: word, transformed: singular)
+        }
+        
+        // 以 "ses", "ches", "shes", "xes", "zes" 结尾的单词，移除 "es"
+        if lowercased.hasSuffix("ses") || lowercased.hasSuffix("ches") || 
+           lowercased.hasSuffix("shes") || lowercased.hasSuffix("xes") || 
+           lowercased.hasSuffix("zes") {
+            let singular = String(lowercased.dropLast(2))
+            return restoreOriginalCase(original: word, transformed: singular)
+        }
+        
+        // 一般情况：以 "s" 结尾的单词，移除 "s"
+        if lowercased.hasSuffix("s") && lowercased.count > 1 {
+            let singular = String(lowercased.dropLast())
+            return restoreOriginalCase(original: word, transformed: singular)
         }
 
-        // 如果已经是单数形式，返回原词
         return word
+    }
+    
+    // 动词时态转换方法
+    func correctVerbTense(of word: String) -> String {
+        let lowercased = word.lowercased()
+        
+        // 不规则动词过去式和过去分词
+        let irregularVerbs = [
+            "was": "be", "were": "be", "been": "be",
+            "had": "have", "has": "have",
+            "did": "do", "done": "do", "does": "do",
+            "went": "go", "gone": "go", "goes": "go",
+            "came": "come", "comes": "come",
+            "took": "take", "taken": "take", "takes": "take",
+            "saw": "see", "seen": "see", "sees": "see",
+            "made": "make", "makes": "make",
+            "got": "get", "gotten": "get", "gets": "get",
+            "gave": "give", "given": "give", "gives": "give",
+            "knew": "know", "known": "know", "knows": "know",
+            "thought": "think", "thinks": "think",
+            "said": "say", "says": "say",
+            "told": "tell", "tells": "tell",
+            "found": "find", "finds": "find",
+            "left": "leave", "leaves": "leave",
+            "felt": "feel", "feels": "feel",
+            "kept": "keep", "keeps": "keep",
+            "meant": "mean", "means": "mean",
+            "brought": "bring", "brings": "bring",
+            "built": "build", "builds": "build",
+            "bought": "buy", "buys": "buy",
+            "caught": "catch", "catches": "catch",
+            "taught": "teach", "teaches": "teach",
+            "fought": "fight", "fights": "fight",
+            "sought": "seek", "seeks": "seek",
+            "ran": "run", "runs": "run",
+            "won": "win", "wins": "win",
+            "began": "begin", "begins": "begin",
+            "drank": "drink", "drinks": "drink",
+            "sang": "sing", "sings": "sing",
+            "swam": "swim", "swims": "swim",
+            "rang": "ring", "rings": "ring"
+        ]
+        
+        if let baseForm = irregularVerbs[lowercased] {
+            return restoreOriginalCase(original: word, transformed: baseForm)
+        }
+        
+        // 处理规则动词
+        // 以 "ied" 结尾，替换为 "y"
+        if lowercased.hasSuffix("ied") && lowercased.count > 3 {
+            let base = String(lowercased.dropLast(3))
+            let baseForm = base + "y"
+            return restoreOriginalCase(original: word, transformed: baseForm)
+        }
+        
+        // 以 "ed" 结尾的过去式，移除 "ed"
+        if lowercased.hasSuffix("ed") && lowercased.count > 2 {
+            let baseForm = String(lowercased.dropLast(2))
+            return restoreOriginalCase(original: word, transformed: baseForm)
+        }
+        
+        // 以 "ing" 结尾的进行时，移除 "ing"
+        if lowercased.hasSuffix("ing") && lowercased.count > 3 {
+            let baseForm = String(lowercased.dropLast(3))
+            return restoreOriginalCase(original: word, transformed: baseForm)
+        }
+        
+        // 第三人称单数现在时，以 "s" 结尾
+        if lowercased.hasSuffix("s") && lowercased.count > 1 {
+            let baseForm = String(lowercased.dropLast())
+            return restoreOriginalCase(original: word, transformed: baseForm)
+        }
+        
+        return word
+    }
+    
+    // 恢复原始大小写格式
+    func restoreOriginalCase(original: String, transformed: String) -> String {
+        guard !original.isEmpty && !transformed.isEmpty else { return transformed }
+        
+        if original.first?.isUppercase == true {
+            return transformed.prefix(1).uppercased() + transformed.dropFirst().lowercased()
+        } else if original == original.uppercased() {
+            return transformed.uppercased()
+        } else {
+            return transformed.lowercased()
+        }
     }
 
     // 大小写修正方法
@@ -185,12 +421,19 @@ struct ProcessingView: View {
         return word.capitalized
     }
 
-    // 综合修复方法
+    // 综合修复方法 - 返回拼写修正后的单词
     func fixWord(_ word: String) -> String {
         let correctedWord = correctSpelling(of: word) // 修复拼写错误
-//        correctedWord = correctPlurality(of: correctedWord) // 修复单复数
-//        correctedWord = correctCase(of: correctedWord) // 修复大小写
         return correctedWord
+    }
+    
+    // 创建字典形式的单词（去掉单复数和时态）
+    func createDictionaryForm(_ word: String) -> String {
+        var dictionaryWord = correctSpelling(of: word) // 先修正拼写
+        dictionaryWord = correctPlurality(of: dictionaryWord) // 转为单数
+        dictionaryWord = correctVerbTense(of: dictionaryWord) // 转为动词原形
+        dictionaryWord = dictionaryWord.lowercased() // 转为小写
+        return dictionaryWord
     }
     
     private func application(_ application: UIApplication, open url: URL, options: [UIApplication.OpenExternalURLOptionsKey : Any] = [:]) -> Bool {
